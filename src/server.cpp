@@ -55,7 +55,21 @@ int main(int argc, char **argv) {
   
   // accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
   int client = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  std::string message = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+  // std::string message = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+  
+  char buffer[1024] = {0};
+  read(client, buffer, sizeof(buffer));
+  std::string request(buffer);
+  std::cout << "Received request:\n" << request << "\n";
+  std::string message;
+  if( request.find("GET / HTTP/1.1") == 0){
+    message = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+    // std::cout<<message;
+  }else{
+    message = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+    // std::cout<<message;
+  }
+  // std::cout<<message;
   send(client, message.c_str(), message.length(), 0);
   std::cout << "Client connected\n";
   
