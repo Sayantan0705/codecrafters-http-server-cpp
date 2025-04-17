@@ -9,6 +9,7 @@
 #include <netdb.h>
 
 int main(int argc, char **argv) {
+  
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
@@ -60,12 +61,19 @@ int main(int argc, char **argv) {
   char buffer[1024] = {0};
   read(client, buffer, sizeof(buffer));
   std::string request(buffer);
-  std::cout << "Received request:\n" << request << "\n";
+  // std::cout << "Received request:\n" << request << "\n";
+  std::string path = request.substr(request.find(' ') + 1, request.find(' ', request.find(' ') + 1) - request.find(' ') - 1);
+  // std::cout<<path<<"\n";
+  
   std::string message;
-  if( request.find("GET / HTTP/1.1") == 0){
+  if( path == "/"){
     message = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
     // std::cout<<message;
-  }else{
+  }else if ( path.find("/echo/") == 0){
+    std::string content = path.substr(6);
+    message = "HTTP/1.1 200 OK\r\nContent-Length:" +std::to_string(content.size())+ "\r\n\r\n" + content;
+  }
+  else{
     message = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
     // std::cout<<message;
   }
