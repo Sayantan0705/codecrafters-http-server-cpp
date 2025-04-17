@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:" +std::to_string(content.size())+ "\r\n\r\n" + content;
   }
   else{
-    message = "HTTP/1.1 404 Not FoundContent-Type: text/plain\r\n\r\nContent-Length: 0\r\n\r\n";
+    message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nContent-Length: 0\r\n\r\n";
     // std::cout<<message;
   }
   // std::cout<<message;
