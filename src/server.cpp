@@ -72,12 +72,36 @@ int main(int argc, char **argv) {
   }else if ( path.find("/echo/") == 0){
     std::string content = path.substr(6);
     message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:" +std::to_string(content.size())+ "\r\n\r\n" + content;
+  }else if( path.find("/user-agent") == 0){
+    std::string user_agent_line;
+    size_t pos = request.find("User-Agent:");
+    if (pos != std::string::npos) {
+      size_t end = request.find('\n', pos);
+      user_agent_line = request.substr(pos, end - pos);
+      // std::cout<<user_agent_line<<"\n";
+    }
+    // std::cout<<"This is user-agent-line"<<user_agent_line;
+    std::string user_agent_value;
+    const std::string key = "User-Agent: ";
+    if (!user_agent_line.empty()) {
+      user_agent_value = user_agent_line.substr(key.size());
+      user_agent_value.erase(0, user_agent_value.find_first_not_of(" \t")); // Trim leading whitespace
+      //Strip trailing \r if present
+      if (!user_agent_value.empty() && user_agent_value.back() == '\r') {
+        user_agent_value.pop_back();
+    }
+    }
+    std::string content = user_agent_value;
+    std::cout<<user_agent_value<<"\n";
+    message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:" +std::to_string(user_agent_value.size())+ "\r\n\r\n" + user_agent_value;
+    std::cout<<message;
+
+    // std::cout<<user_agent_value + "  " + user_agent_line;
   }
   else{
     message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nContent-Length: 0\r\n\r\n";
     // std::cout<<message;
   }
-  // std::cout<<message;
   send(client, message.c_str(), message.length(), 0);
   std::cout << "Client connected\n";
   
