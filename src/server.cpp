@@ -8,12 +8,12 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <thread>
-
-void handle_client(int client) {
+#include <fstream>
+void handle_client(int client, char **argv) {
     char buffer[1024] = {0};
     read(client, buffer, sizeof(buffer));
     std::string request(buffer);
-    
+    // std::cout<<argv;
     std::string path = request.substr(request.find(' ') + 1, request.find(' ', request.find(' ') + 1) - request.find(' ') - 1);
 
     std::string message;
@@ -43,7 +43,24 @@ void handle_client(int client) {
 
         message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
                   std::to_string(user_agent_value.size()) + "\r\n\r\n" + user_agent_value;
-    } else {
+    } else if ( path.find("/files/") == 0){
+      std::string fileName = path.substr(7);
+      std::string directory = argv[2];
+      // std::cout << "Current working directory: " 
+      //         << std::filesystem::current_path() << std::endl;
+      // std::cout<<directory+fileName;
+      std::ifstream ifs(directory + fileName);
+      // std::cout<< ifs.good();
+      if (ifs.good()){
+        std::stringstream content;
+        content << ifs.rdbuf();
+        message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.str().length()) + "\r\n\r\n" + content.str() + "\r\n";
+      }else {
+        message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+      }
+    }
+    
+    else {
         message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
     }
 
@@ -83,9 +100,11 @@ int main(int argc, char **argv) {
         std::cerr << "listen failed\n";
         return 1;
     }
-
+    std::string directory;
     std::cout << "Waiting for a client to connect...\n";
-
+    // if (argc == 3 && strcmp(argv[1], "--directory") == 0){
+    //     directory = argv[2];
+    // }
     while (true) {
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
@@ -94,7 +113,7 @@ int main(int argc, char **argv) {
             char client_ip[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
             std::cout << "Client connected from IP: " << client_ip << "\n";
-            std::thread(handle_client, client).detach(); // Spawn thread and detach it
+            std::thread(handle_client, client,argv).detach(); // Spawn thread and detach it
         }
     }
 
