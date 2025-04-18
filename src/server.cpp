@@ -7,105 +7,97 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <thread>
+
+void handle_client(int client) {
+    char buffer[1024] = {0};
+    read(client, buffer, sizeof(buffer));
+    std::string request(buffer);
+    
+    std::string path = request.substr(request.find(' ') + 1, request.find(' ', request.find(' ') + 1) - request.find(' ') - 1);
+
+    std::string message;
+    if (path == "/") {
+        message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+    } else if (path.find("/echo/") == 0) {
+        std::string content = path.substr(6);
+        message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
+                  std::to_string(content.size()) + "\r\n\r\n" + content;
+    } else if (path.find("/user-agent") == 0) {
+        std::string user_agent_line;
+        size_t pos = request.find("User-Agent:");
+        if (pos != std::string::npos) {
+            size_t end = request.find('\n', pos);
+            user_agent_line = request.substr(pos, end - pos);
+        }
+
+        std::string user_agent_value;
+        const std::string key = "User-Agent: ";
+        if (!user_agent_line.empty()) {
+            user_agent_value = user_agent_line.substr(key.size());
+            user_agent_value.erase(0, user_agent_value.find_first_not_of(" \t"));
+            if (!user_agent_value.empty() && user_agent_value.back() == '\r') {
+                user_agent_value.pop_back();
+            }
+        }
+
+        message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
+                  std::to_string(user_agent_value.size()) + "\r\n\r\n" + user_agent_value;
+    } else {
+        message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+    }
+
+    send(client, message.c_str(), message.length(), 0);
+    close(client);
+    std::cout << "Handled client in thread\n";
+}
 
 int main(int argc, char **argv) {
-  
-  // Flush after every std::cout / std::cerr
-  std::cout << std::unitbuf;
-  std::cerr << std::unitbuf;
-  
-  // You can use print statements as follows for debugging, they'll be visible when running tests.
-  std::cout << "Logs from your program will appear here!\n";
+    std::cout << std::unitbuf;
+    std::cerr << std::unitbuf;
+    std::cout << "Logs from your program will appear here!\n";
 
-  //Uncomment this block to pass the first stage
-  
-  int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (server_fd < 0) {
-   std::cerr << "Failed to create server socket\n";
-   return 1;
-  }
-  
-  // Since the tester restarts your program quite often, setting SO_REUSEADDR
-  // ensures that we don't run into 'Address already in use' errors
-  int reuse = 1;
-  if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-    std::cerr << "setsockopt failed\n";
-    return 1;
-  }
-  
-  struct sockaddr_in server_addr;
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(4221);
-  
-  if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
-    std::cerr << "Failed to bind to port 4221\n";
-    return 1;
-  }
-  
-  int connection_backlog = 5;
-  if (listen(server_fd, connection_backlog) != 0) {
-    std::cerr << "listen failed\n";
-    return 1;
-  }
-  
-  struct sockaddr_in client_addr;
-  int client_addr_len = sizeof(client_addr);
-  
-  std::cout << "Waiting for a client to connect...\n";
-  
-  // accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  int client = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  // std::string message = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-  
-  char buffer[1024] = {0};
-  read(client, buffer, sizeof(buffer));
-  std::string request(buffer);
-  // std::cout << "Received request:\n" << request << "\n";
-  std::string path = request.substr(request.find(' ') + 1, request.find(' ', request.find(' ') + 1) - request.find(' ') - 1);
-  // std::cout<<path<<"\n";
-  
-  std::string message;
-  if( path == "/"){
-    message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
-    // std::cout<<message;
-  }else if ( path.find("/echo/") == 0){
-    std::string content = path.substr(6);
-    message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:" +std::to_string(content.size())+ "\r\n\r\n" + content;
-  }else if( path.find("/user-agent") == 0){
-    std::string user_agent_line;
-    size_t pos = request.find("User-Agent:");
-    if (pos != std::string::npos) {
-      size_t end = request.find('\n', pos);
-      user_agent_line = request.substr(pos, end - pos);
-      // std::cout<<user_agent_line<<"\n";
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        std::cerr << "Failed to create server socket\n";
+        return 1;
     }
-    // std::cout<<"This is user-agent-line"<<user_agent_line;
-    std::string user_agent_value;
-    const std::string key = "User-Agent: ";
-    if (!user_agent_line.empty()) {
-      user_agent_value = user_agent_line.substr(key.size());
-      user_agent_value.erase(0, user_agent_value.find_first_not_of(" \t")); // Trim leading whitespace
-      //Strip trailing \r if present
-      if (!user_agent_value.empty() && user_agent_value.back() == '\r') {
-        user_agent_value.pop_back();
-    }
-    }
-    std::string content = user_agent_value;
-    std::cout<<user_agent_value<<"\n";
-    message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:" +std::to_string(user_agent_value.size())+ "\r\n\r\n" + user_agent_value;
-    std::cout<<message;
 
-    // std::cout<<user_agent_value + "  " + user_agent_line;
-  }
-  else{
-    message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nContent-Length: 0\r\n\r\n";
-    // std::cout<<message;
-  }
-  send(client, message.c_str(), message.length(), 0);
-  std::cout << "Client connected\n";
-  
-  close(server_fd);
+    int reuse = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+        std::cerr << "setsockopt failed\n";
+        return 1;
+    }
 
-  return 0;
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(4221);
+
+    if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
+        std::cerr << "Failed to bind to port 4221\n";
+        return 1;
+    }
+
+    if (listen(server_fd, 5) != 0) {
+        std::cerr << "listen failed\n";
+        return 1;
+    }
+
+    std::cout << "Waiting for a client to connect...\n";
+
+    while (true) {
+        struct sockaddr_in client_addr;
+        socklen_t client_addr_len = sizeof(client_addr);
+        int client = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
+        if (client >= 0) {
+            char client_ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
+            std::cout << "Client connected from IP: " << client_ip << "\n";
+            std::thread(handle_client, client).detach(); // Spawn thread and detach it
+        }
+    }
+
+    close(server_fd);
+    return 0;
 }
