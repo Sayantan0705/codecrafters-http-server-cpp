@@ -9,6 +9,8 @@
 #include <netdb.h>
 #include <thread>
 #include <fstream>
+#include <sstream>
+
 void handle_client(int client, char **argv) {
     char buffer[1024] = {0};
     read(client, buffer, sizeof(buffer));
@@ -46,9 +48,9 @@ void handle_client(int client, char **argv) {
     } else if ( path.find("/files/") == 0){
       std::string fileName = path.substr(7);
       std::string directory = argv[2];
-      std::cout << "Current working directory: " 
-              << std::filesystem::current_path() << std::endl;
-      std::cout<<directory+fileName<<std::endl;
+      // std::cout << "Current working directory: " 
+      //         << std::filesystem::current_path() << std::endl;
+      // std::cout<<directory+fileName<<std::endl;
       std::ifstream ifs(directory + fileName);
       // std::cout<< ifs.good();
       if (ifs.good()){
