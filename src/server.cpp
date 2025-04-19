@@ -24,9 +24,7 @@ void handle_client(int client, char **argv) {
     std::string body = (body_pos != std::string::npos) ? request.substr(body_pos + 4) : "";
     // std::cout<<body<<std::endl;
     
-    std::string fileName = path.substr(7);
-    std::string directory = argv[2];
-    std::string filePath = directory+fileName;
+
     std::string message;
     if (path == "/") {
         message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
@@ -55,9 +53,11 @@ void handle_client(int client, char **argv) {
         message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
                   std::to_string(user_agent_value.size()) + "\r\n\r\n" + user_agent_value;
     } else if ( path.find("/files/") == 0){
+      std::string fileName = path.substr(7);
+      std::string directory = argv[2];
+      std::string filePath = directory+fileName;
       if (method == "GET"){
-        // std::string fileName = path.substr(7);
-        // std::string directory = argv[2];
+        
         // std::cout << "Current working directory: " 
         //         << std::filesystem::current_path() << std::endl;
         // std::cout<<directory+fileName<<std::endl;
