@@ -70,7 +70,7 @@ void handle_client(int client, char **argv) {
     } else if ( path.find("/files/") == 0){
       std::string fileName = path.substr(7);
       std::string directory = argv[2];
-      std::string filePath = "."+directory+fileName;
+      std::string filePath = directory+fileName;
       if (method == "GET"){
         
         // std::cout << "Current working directory: " 
