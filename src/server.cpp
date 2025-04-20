@@ -11,6 +11,27 @@
 #include <fstream>
 #include <sstream>
 
+std::string breakdown_request(std::string request, std::string target){
+    std::string user_agent_line;
+    size_t pos = request.find(target);
+    if (pos != std::string::npos) {
+        size_t end = request.find('\n', pos);
+        user_agent_line = request.substr(pos, end - pos);
+    }
+
+    std::string user_agent_value;
+    const std::string key = target;
+    if (!user_agent_line.empty()) {
+        user_agent_value = user_agent_line.substr(key.size());
+        user_agent_value.erase(0, user_agent_value.find_first_not_of(" \t"));
+        if (!user_agent_value.empty() && user_agent_value.back() == '\r') {
+            user_agent_value.pop_back();
+        }
+    }
+    return user_agent_value;
+}
+
+
 void handle_client(int client, char **argv) {
     char buffer[1024] = {0};
     read(client, buffer, sizeof(buffer));
@@ -29,40 +50,29 @@ void handle_client(int client, char **argv) {
     if (path == "/") {
         message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
     } else if (path.find("/echo/") == 0) {
+
+        std::string content_encoding_value = breakdown_request(request,"Accept-Encoding:");
+        std::cout<<content_encoding_value<<std::endl;
         std::string content = path.substr(6);
-        message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
+        message = "HTTP/1.1 200 OK\r\nContent-Encoding: "+content_encoding_value+ "\r\nContent-Type: text/plain\r\nContent-Length: " +
                   std::to_string(content.size()) + "\r\n\r\n" + content;
     } else if (path.find("/user-agent") == 0) {
-        std::string user_agent_line;
-        size_t pos = request.find("User-Agent:");
-        if (pos != std::string::npos) {
-            size_t end = request.find('\n', pos);
-            user_agent_line = request.substr(pos, end - pos);
-        }
-
-        std::string user_agent_value;
-        const std::string key = "User-Agent: ";
-        if (!user_agent_line.empty()) {
-            user_agent_value = user_agent_line.substr(key.size());
-            user_agent_value.erase(0, user_agent_value.find_first_not_of(" \t"));
-            if (!user_agent_value.empty() && user_agent_value.back() == '\r') {
-                user_agent_value.pop_back();
-            }
-        }
+        
+        std::string user_agent_value = breakdown_request(request,"User-Agent:");
 
         message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
                   std::to_string(user_agent_value.size()) + "\r\n\r\n" + user_agent_value;
     } else if ( path.find("/files/") == 0){
       std::string fileName = path.substr(7);
       std::string directory = argv[2];
-      std::string filePath = directory+fileName;
+      std::string filePath = "."+directory+fileName;
       if (method == "GET"){
         
         // std::cout << "Current working directory: " 
         //         << std::filesystem::current_path() << std::endl;
-        // std::cout<<directory+fileName<<std::endl;
-        std::ifstream ifs(directory + fileName);
-        // std::cout<< ifs.good();
+        std::cout<<directory+fileName<<std::endl;
+        std::ifstream ifs(filePath);
+        std::cout<< ifs.good();
         if (ifs.good()){
           std::stringstream content;
           content << ifs.rdbuf();
