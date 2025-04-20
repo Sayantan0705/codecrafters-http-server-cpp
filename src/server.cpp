@@ -10,6 +10,30 @@
 #include <thread>
 #include <fstream>
 #include <sstream>
+#include <zlib.h>
+
+
+std::string gzip_compress(const std::string& input) {
+    z_stream zs{};
+    deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+    
+    zs.next_in = (Bytef*)input.data();
+    zs.avail_in = input.size();
+
+    std::string compressed;
+    char outbuffer[32768];
+
+    do {
+        zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
+        zs.avail_out = sizeof(outbuffer);
+
+        deflate(&zs, Z_FINISH);
+        compressed.append(outbuffer, sizeof(outbuffer) - zs.avail_out);
+    } while (zs.avail_out == 0);
+
+    deflateEnd(&zs);
+    return compressed;
+}
 
 std::string breakdown_request(std::string request, std::string target){
     std::string user_agent_line;
@@ -53,7 +77,8 @@ void handle_client(int client, char **argv) {
 
         std::string content_encoding_value = breakdown_request(request,"Accept-Encoding:");
         std::cout<<content_encoding_value<<std::endl;
-        std::string content = path.substr(6);
+        // std::string content = path.substr(6);
+        std::string content = gzip_compress(path.substr(6));
         if (content_encoding_value.find("gzip")!= std::string::npos){
             message = "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: " +
                       std::to_string(content.size()) + "\r\n\r\n" + content;
