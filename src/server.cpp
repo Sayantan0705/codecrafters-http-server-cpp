@@ -77,12 +77,12 @@ void handle_client(int client, char **argv) {
 
         std::string content_encoding_value = breakdown_request(request,"Accept-Encoding:");
         std::cout<<content_encoding_value<<std::endl;
-        // std::string content = path.substr(6);
-        std::string content = gzip_compress(path.substr(6));
         if (content_encoding_value.find("gzip")!= std::string::npos){
+            std::string content = gzip_compress(path.substr(6));
             message = "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: " +
-                      std::to_string(content.size()) + "\r\n\r\n" + content;
+            std::to_string(content.size()) + "\r\n\r\n" + content;
         }else{
+            std::string content = path.substr(6);
             message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
                       std::to_string(content.size()) + "\r\n\r\n" + content;
         }
