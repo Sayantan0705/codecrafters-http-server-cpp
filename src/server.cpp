@@ -71,7 +71,7 @@ void handle_client(int client, char **argv) {
           message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
         }
       }else if (method == "POST"){
-        std::cout<<filePath<<std::endl;
+        // std::cout<<filePath<<std::endl;
         std::ofstream ofs(filePath);
             if (ofs.is_open()) {
                 ofs << body;
