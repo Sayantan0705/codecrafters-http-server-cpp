@@ -54,8 +54,13 @@ void handle_client(int client, char **argv) {
         std::string content_encoding_value = breakdown_request(request,"Accept-Encoding:");
         std::cout<<content_encoding_value<<std::endl;
         std::string content = path.substr(6);
-        message = "HTTP/1.1 200 OK\r\nContent-Encoding: "+content_encoding_value+ "\r\nContent-Type: text/plain\r\nContent-Length: " +
-                  std::to_string(content.size()) + "\r\n\r\n" + content;
+        if (content_encoding_value == "gzip"){
+            message = "HTTP/1.1 200 OK\r\nContent-Encoding: "+content_encoding_value+ "\r\nContent-Type: text/plain\r\nContent-Length: " +
+                      std::to_string(content.size()) + "\r\n\r\n" + content;
+        }else{
+            message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
+                      std::to_string(content.size()) + "\r\n\r\n" + content;
+        }
     } else if (path.find("/user-agent") == 0) {
         
         std::string user_agent_value = breakdown_request(request,"User-Agent:");
