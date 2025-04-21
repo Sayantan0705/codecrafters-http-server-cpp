@@ -70,7 +70,7 @@ void handle_client(int client, char **argv) {
         bool keep_alive = request.find("Connection: keep-alive") != std::string::npos;
 
         if (path == "/") {
-            message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n";
+            message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n Content-Length: 0\r\n";
         } else if (path.find("/echo/") == 0) {
             std::string content_encoding_value = breakdown_request(request, "Accept-Encoding:");
             if (content_encoding_value.find("gzip") != std::string::npos) {
@@ -119,7 +119,7 @@ void handle_client(int client, char **argv) {
         } else {
             message.insert(message.find("\r\n") + 2, "Connection: close\r\n");
         }
-
+        std::cout<<message.c_str()<<std::endl;
         send(client, message.c_str(), message.length(), 0);
 
         if (!keep_alive) break;
