@@ -67,8 +67,8 @@ void handle_client(int client, char **argv) {
         std::string body = (body_pos != std::string::npos) ? request.substr(body_pos + 4) : "";
 
         std::string message;
-        // bool keep_alive = request.find("Connection: keep-alive") != std::string::npos;
-        bool keep_alive = true;
+        bool keep_alive = request.find("Connection: close") != std::string::npos;
+        keep_alive = !keep_alive;
         if (path == "/") {
             message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
         } else if (path.find("/echo/") == 0) {
