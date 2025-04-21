@@ -57,79 +57,81 @@ std::string breakdown_request(std::string request, std::string target){
 
 
 void handle_client(int client, char **argv) {
-    char buffer[1024] = {0};
-    read(client, buffer, sizeof(buffer));
-    std::string request(buffer);
-    // std::cout<<argv;
-    std::cout<<request<<std::endl;
-    std::string method = request.substr(0, request.find(' '));
-    std::string path = request.substr(request.find(' ') + 1, request.find(' ', request.find(' ') + 1) - request.find(' ') - 1);
-    std::cout<<method<<std::endl;
-    size_t body_pos = request.find("\r\n\r\n");
-    std::string body = (body_pos != std::string::npos) ? request.substr(body_pos + 4) : "";
-    // std::cout<<body<<std::endl;
+    while (true){
+        char buffer[1024] = {0};
+        read(client, buffer, sizeof(buffer));
+        std::string request(buffer);
+        // std::cout<<argv;
+        std::cout<<request<<std::endl;
+        std::string method = request.substr(0, request.find(' '));
+        std::string path = request.substr(request.find(' ') + 1, request.find(' ', request.find(' ') + 1) - request.find(' ') - 1);
+        std::cout<<method<<std::endl;
+        size_t body_pos = request.find("\r\n\r\n");
+        std::string body = (body_pos != std::string::npos) ? request.substr(body_pos + 4) : "";
+        // std::cout<<body<<std::endl;
+        
     
-
-    std::string message;
-    if (path == "/") {
-        message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
-    } else if (path.find("/echo/") == 0) {
-
-        std::string content_encoding_value = breakdown_request(request,"Accept-Encoding:");
-        std::cout<<content_encoding_value<<std::endl;
-        if (content_encoding_value.find("gzip")!= std::string::npos){
-            std::string content = gzip_compress(path.substr(6));
-            message = "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: " +
-            std::to_string(content.size()) + "\r\n\r\n" + content;
-        }else{
-            std::string content = path.substr(6);
+        std::string message;
+        if (path == "/") {
+            message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+        } else if (path.find("/echo/") == 0) {
+    
+            std::string content_encoding_value = breakdown_request(request,"Accept-Encoding:");
+            std::cout<<content_encoding_value<<std::endl;
+            if (content_encoding_value.find("gzip")!= std::string::npos){
+                std::string content = gzip_compress(path.substr(6));
+                message = "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: " +
+                std::to_string(content.size()) + "\r\n\r\n" + content;
+            }else{
+                std::string content = path.substr(6);
+                message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
+                          std::to_string(content.size()) + "\r\n\r\n" + content;
+            }
+        } else if (path.find("/user-agent") == 0){
+            
+            std::string user_agent_value = breakdown_request(request,"User-Agent:");
+    
             message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
-                      std::to_string(content.size()) + "\r\n\r\n" + content;
+                      std::to_string(user_agent_value.size()) + "\r\n\r\n" + user_agent_value;
+        } else if ( path.find("/files/") == 0){
+          std::string fileName = path.substr(7);
+          std::string directory = argv[2];
+          std::string filePath = directory+fileName;
+          if (method == "GET"){
+            
+            // std::cout << "Current working directory: " 
+            //         << std::filesystem::current_path() << std::endl;
+            std::cout<<directory+fileName<<std::endl;
+            std::ifstream ifs(filePath);
+            std::cout<< ifs.good();
+            if (ifs.good()){
+              std::stringstream content;
+              content << ifs.rdbuf();
+              message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.str().length()) + "\r\n\r\n" + content.str() + "\r\n";
+            }else {
+              message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+            }
+          }else if (method == "POST"){
+            // std::cout<<filePath<<std::endl;
+            std::ofstream ofs(filePath);
+                if (ofs.is_open()) {
+                    ofs << body;
+                    ofs.close();
+                    message = "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n";
+                // message = "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n";
+            } else {
+                message = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n";
+            }
+          }
+          
         }
-    } else if (path.find("/user-agent") == 0){
         
-        std::string user_agent_value = breakdown_request(request,"User-Agent:");
-
-        message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
-                  std::to_string(user_agent_value.size()) + "\r\n\r\n" + user_agent_value;
-    } else if ( path.find("/files/") == 0){
-      std::string fileName = path.substr(7);
-      std::string directory = argv[2];
-      std::string filePath = directory+fileName;
-      if (method == "GET"){
-        
-        // std::cout << "Current working directory: " 
-        //         << std::filesystem::current_path() << std::endl;
-        std::cout<<directory+fileName<<std::endl;
-        std::ifstream ifs(filePath);
-        std::cout<< ifs.good();
-        if (ifs.good()){
-          std::stringstream content;
-          content << ifs.rdbuf();
-          message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.str().length()) + "\r\n\r\n" + content.str() + "\r\n";
-        }else {
-          message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+        else {
+            message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
         }
-      }else if (method == "POST"){
-        // std::cout<<filePath<<std::endl;
-        std::ofstream ofs(filePath);
-            if (ofs.is_open()) {
-                ofs << body;
-                ofs.close();
-                message = "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n";
-            // message = "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n";
-        } else {
-            message = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n";
-        }
-      }
-      
-    }
     
-    else {
-        message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+        send(client, message.c_str(), message.length(), 0);
     }
-
-    send(client, message.c_str(), message.length(), 0);
     close(client);
     std::cout << "Handled client in thread\n";
 }
