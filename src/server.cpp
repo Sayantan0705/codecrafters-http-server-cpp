@@ -12,11 +12,10 @@
 #include <sstream>
 #include <zlib.h>
 
-
 std::string gzip_compress(const std::string& input) {
     z_stream zs{};
     deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
-    
+
     zs.next_in = (Bytef*)input.data();
     zs.avail_in = input.size();
 
@@ -35,7 +34,7 @@ std::string gzip_compress(const std::string& input) {
     return compressed;
 }
 
-std::string breakdown_request(std::string request, std::string target){
+std::string breakdown_request(std::string request, std::string target) {
     std::string user_agent_line;
     size_t pos = request.find(target);
     if (pos != std::string::npos) {
@@ -55,83 +54,77 @@ std::string breakdown_request(std::string request, std::string target){
     return user_agent_value;
 }
 
-
 void handle_client(int client, char **argv) {
-    while (true){
-        char buffer[1024] = {0};
-        read(client, buffer, sizeof(buffer));
+    while (true) {
+        char buffer[4096] = {0};
+        int bytes_read = read(client, buffer, sizeof(buffer));
+        if (bytes_read <= 0) break;
+
         std::string request(buffer);
-        // std::cout<<argv;
-        std::cout<<request<<std::endl;
         std::string method = request.substr(0, request.find(' '));
         std::string path = request.substr(request.find(' ') + 1, request.find(' ', request.find(' ') + 1) - request.find(' ') - 1);
-        std::cout<<method<<std::endl;
         size_t body_pos = request.find("\r\n\r\n");
         std::string body = (body_pos != std::string::npos) ? request.substr(body_pos + 4) : "";
-        // std::cout<<body<<std::endl;
-        
-    
+
         std::string message;
+        bool keep_alive = request.find("Connection: keep-alive") != std::string::npos;
+
         if (path == "/") {
-            message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+            message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n";
         } else if (path.find("/echo/") == 0) {
-    
-            std::string content_encoding_value = breakdown_request(request,"Accept-Encoding:");
-            std::cout<<content_encoding_value<<std::endl;
-            if (content_encoding_value.find("gzip")!= std::string::npos){
+            std::string content_encoding_value = breakdown_request(request, "Accept-Encoding:");
+            if (content_encoding_value.find("gzip") != std::string::npos) {
                 std::string content = gzip_compress(path.substr(6));
                 message = "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: " +
-                std::to_string(content.size()) + "\r\n\r\n" + content;
-            }else{
+                          std::to_string(content.size()) + "\r\n\r\n" + content;
+            } else {
                 std::string content = path.substr(6);
                 message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
                           std::to_string(content.size()) + "\r\n\r\n" + content;
             }
-        } else if (path.find("/user-agent") == 0){
-            
-            std::string user_agent_value = breakdown_request(request,"User-Agent:");
-    
+        } else if (path.find("/user-agent") == 0) {
+            std::string user_agent_value = breakdown_request(request, "User-Agent:");
             message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
                       std::to_string(user_agent_value.size()) + "\r\n\r\n" + user_agent_value;
-        } else if ( path.find("/files/") == 0){
-          std::string fileName = path.substr(7);
-          std::string directory = argv[2];
-          std::string filePath = directory+fileName;
-          if (method == "GET"){
-            
-            // std::cout << "Current working directory: " 
-            //         << std::filesystem::current_path() << std::endl;
-            std::cout<<directory+fileName<<std::endl;
-            std::ifstream ifs(filePath);
-            std::cout<< ifs.good();
-            if (ifs.good()){
-              std::stringstream content;
-              content << ifs.rdbuf();
-              message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.str().length()) + "\r\n\r\n" + content.str() + "\r\n";
-            }else {
-              message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
-            }
-          }else if (method == "POST"){
-            // std::cout<<filePath<<std::endl;
-            std::ofstream ofs(filePath);
+        } else if (path.find("/files/") == 0) {
+            std::string fileName = path.substr(7);
+            std::string directory = argv[2];
+            std::string filePath = directory + fileName;
+            if (method == "GET") {
+                std::ifstream ifs(filePath);
+                if (ifs.good()) {
+                    std::stringstream content;
+                    content << ifs.rdbuf();
+                    message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " +
+                              std::to_string(content.str().length()) + "\r\n\r\n" + content.str();
+                } else {
+                    message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+                }
+            } else if (method == "POST") {
+                std::ofstream ofs(filePath);
                 if (ofs.is_open()) {
                     ofs << body;
                     ofs.close();
                     message = "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n";
-                // message = "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n";
-            } else {
-                message = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n";
+                } else {
+                    message = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n";
+                }
             }
-          }
-          
-        }
-        
-        else {
+        } else {
             message = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
         }
-    
+
+        if (keep_alive) {
+            message.insert(message.find("\r\n") + 2, "Connection: keep-alive\r\nKeep-Alive: timeout=5, max=1000\r\n");
+        } else {
+            message.insert(message.find("\r\n") + 2, "Connection: close\r\n");
+        }
+
         send(client, message.c_str(), message.length(), 0);
+
+        if (!keep_alive) break;
     }
+
     close(client);
     std::cout << "Handled client in thread\n";
 }
@@ -148,17 +141,14 @@ int main(int argc, char **argv) {
     }
 
     int reuse = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-        std::cerr << "setsockopt failed\n";
-        return 1;
-    }
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(4221);
 
-    if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) != 0) {
         std::cerr << "Failed to bind to port 4221\n";
         return 1;
     }
@@ -167,20 +157,18 @@ int main(int argc, char **argv) {
         std::cerr << "listen failed\n";
         return 1;
     }
-    std::string directory;
+
     std::cout << "Waiting for a client to connect...\n";
-    // if (argc == 3 && strcmp(argv[1], "--directory") == 0){
-    //     directory = argv[2];
-    // }
+
     while (true) {
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
-        int client = accept(server_fd, (struct sockaddr *) &client_addr, &client_addr_len);
+        int client = accept(server_fd, (struct sockaddr*)&client_addr, &client_addr_len);
         if (client >= 0) {
             char client_ip[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
             std::cout << "Client connected from IP: " << client_ip << "\n";
-            std::thread(handle_client, client,argv).detach(); // Spawn thread and detach it
+            std::thread(handle_client, client, argv).detach();
         }
     }
 
